@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Trailer Status Update</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --red: #ef4444;
+      --red-glow: rgba(239, 68, 68, 0.45);
+      --amber: #f59e0b;
+      --amber-glow: rgba(245, 158, 11, 0.45);
+      --green: #22c55e;
+      --green-glow: rgba(34, 197, 94, 0.45);
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 420px;
+      background: var(--card);
+      border-radius: 24px;
+      padding: 24px 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      background: rgba(15, 23, 42, 0.6);
+      padding: 6px 12px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .trailer-id {
+      font-size: 2rem;
+      font-weight: 800;
+      margin: 0 0 16px 0;
+      letter-spacing: -0.02em;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+    .trailer-input-wrap {
+      margin-bottom: 16px;
+      display: none;
+    }
+    .trailer-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: #0f172a;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+    }
+    .gps-box {
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 22px;
+      font-size: 0.875rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .gps-status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-align: left;
+      line-height: 1.35;
+    }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+    }
+    .dot.ok {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+    .dot.err {
+      background: var(--red);
+      box-shadow: 0 0 8px var(--red);
+    }
+    .retry-btn {
+      background: #334155;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .retry-btn:active {
+      transform: scale(0.96);
+    }
+    .traffic-housing {
+      background: #090d16;
+      border-radius: 32px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      border: 2px solid #334155;
+      box-shadow: inset 0 4px 12px rgba(0,0,0,0.8);
+    }
+    .light-btn {
+      width: 100%;
+      border: none;
+      border-radius: 22px;
+      padding: 22px 20px;
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform 0.12s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+    }
+    .light-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      filter: grayscale(40%);
+    }
+    .light-btn:not(:disabled):active {
+      transform: scale(0.97);
+    }
+    .light-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.28);
+      border: 3px solid rgba(255, 255, 255, 0.65);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.25);
+      flex-shrink: 0;
+    }
+    .btn-full {
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      box-shadow: 0 8px 24px var(--red-glow);
+    }
+    .btn-middle {
+      background: linear-gradient(135deg, #f59e0b, #b45309);
+      box-shadow: 0 8px 24px var(--amber-glow);
+    }
+    .btn-empty {
+      background: linear-gradient(135deg, #22c55e, #15803d);
+      box-shadow: 0 8px 24px var(--green-glow);
+    }
+    .sub-label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 500;
+      opacity: 0.9;
+      letter-spacing: 0;
+      margin-top: 2px;
+      text-align: left;
+    }
+    .toast {
+      margin-top: 18px;
+      padding: 14px;
+      border-radius: 14px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      display: none;
+    }
+    .toast.success {
+      display: block;
+      background: rgba(34, 197, 94, 0.18);
+      border: 1px solid var(--green);
+      color: #86efac;
+    }
+    .toast.error {
+      display: block;
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid var(--red);
+      color: #fca5a5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="badge">Trailer ID</div>
+    <h1 class="trailer-id" id="trailerDisplay">Loading...</h1>
+    
+    <div class="trailer-input-wrap" id="manualTrailerWrap">
+      <input type="text" id="manualTrailerInput" class="trailer-input" placeholder="Enter Trailer ID (e.g. TR-101)" />
+    </div>
+
+    <div class="gps-box">
+      <div class="gps-status">
+        <span class="dot" id="gpsDot"></span>
+        <span id="gpsText">Requesting GPS fix...</span>
+      </div>
+      <button class="retry-btn" id="retryGpsBtn" onclick="requestLocation()">Retry GPS</button>
+    </div>
+
+    <div class="traffic-housing">
+      <button class="light-btn btn-full" disabled onclick="submitStatus('FULL')">
+        <div>
+          FULL
+          <span class="sub-label">Red — Full capacity</span>
+        </div>
+        <span class="light-circle"></span>
+      </button>
+
+      <button class="light-btn btn-middle" disabled onclick="submitStatus('MIDDLE')">
+        <div>
+          MIDDLE
+          <span class="sub-label">Amber — Partially loaded</span>
+        </div>
+        <span class="light-circle"></span>
+      </button>
+
+      <button class="light-btn btn-empty" disabled onclick="submitStatus('EMPTY')">
+        <div>
+          EMPTY
+          <span class="sub-label">Green — Ready / Empty</span>
+        </div>
+        <span class="light-circle"></span>
+      </button>
+    </div>
+
+    <div id="toast" class="toast"></div>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATION: Paste your Power Automate HTTP POST Webhook URL below
+    // =========================================================================
+    const POWER_AUTOMATE_WEBHOOK_URL = "YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE";
+
+    let currentCoords = null;
+    let trailerId = "";
+
+    function initTrailerId() {
+      const params = new URLSearchParams(window.location.search);
+      trailerId = (
+        params.get("trailer") ||
+        params.get("trailer_id") ||
+        params.get("id") ||
+        ""
+      ).trim();
+
+      const display = document.getElementById("trailerDisplay");
+      const manualWrap = document.getElementById("manualTrailerWrap");
+      const manualInput = document.getElementById("manualTrailerInput");
+
+      if (trailerId) {
+        display.textContent = trailerId;
+      } else {
+        display.textContent = "No ID Detected";
+        display.style.fontSize = "1.25rem";
+        display.style.color = "#f59e0b";
+        manualWrap.style.display = "block";
+        manualInput.addEventListener("input", () => {
+          trailerId = manualInput.value.trim();
+          updateButtonsState();
+        });
+      }
+    }
+
+    function updateButtonsState(submitting = false) {
+      const ready = Boolean(currentCoords && trailerId && !submitting);
+      document.querySelectorAll(".light-btn").forEach((btn) => {
+        btn.disabled = !ready;
+      });
+    }
+
+    function requestLocation() {
+      const dot = document.getElementById("gpsDot");
+      const text = document.getElementById("gpsText");
+      dot.className = "dot";
+      text.textContent = "Acquiring GPS fix...";
+      currentCoords = null;
+      updateButtonsState();
+
+      if (!navigator.geolocation) {
+        dot.className = "dot err";
+        text.textContent = "Location not supported by browser.";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          currentCoords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy_meters: pos.coords.accuracy,
+            altitude: pos.coords.altitude,
+          };
+          dot.className = "dot ok";
+          text.textContent = `GPS Locked (±${Math.round(pos.coords.accuracy)}m)`;
+          updateButtonsState();
+        },
+        (err) => {
+          dot.className = "dot err";
+          let reason = "Location permission denied or unavailable.";
+          if (err.code === 1) reason = "Location access denied. Please allow GPS and tap Retry.";
+          if (err.code === 2) reason = "GPS position unavailable. Check phone settings.";
+          if (err.code === 3) reason = "GPS timed out. Tap Retry.";
+          text.textContent = reason;
+          updateButtonsState();
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
+        }
+      );
+    }
+
+    async function submitStatus(status) {
+      const toast = document.getElementById("toast");
+      toast.className = "toast";
+      toast.style.display = "none";
+
+      if (!trailerId) {
+        toast.className = "toast error";
+        toast.textContent = "Please enter a Trailer ID first.";
+        return;
+      }
+      if (!currentCoords) {
+        toast.className = "toast error";
+        toast.textContent = "GPS position is required.";
+        return;
+      }
+
+      updateButtonsState(true);
+      toast.className = "toast";
+      toast.style.display = "block";
+      toast.textContent = `Sending ${status} update for ${trailerId}...`;
+
+      const trafficLightMap = { FULL: "RED", MIDDLE: "AMBER", EMPTY: "GREEN" };
+
+      const payload = {
+        trailer_id: trailerId,
+        status: status,
+        traffic_light: trafficLightMap[status],
+        latitude: currentCoords.latitude,
+        longitude: currentCoords.longitude,
+        accuracy_meters: currentCoords.accuracy_meters,
+        google_maps_url: `https://www.google.com/maps?q=${currentCoords.latitude},${currentCoords.longitude}`,
+        timestamp_utc: new Date().toISOString(),
+        user_agent: navigator.userAgent,
+      };
+
+      try {
+        if (!POWER_AUTOMATE_WEBHOOK_URL || POWER_AUTOMATE_WEBHOOK_URL.includes("YOUR_POWER_AUTOMATE_WEBHOOK_URL")) {
+          // Dry-run mode if webhook isn't configured yet
+          console.log("Dry run payload:", payload);
+          toast.className = "toast success";
+          toast.textContent = `[Demo Mode] Recorded: ${trailerId} is ${status}`;
+          return;
+        }
+
+        const res = await fetch(POWER_AUTOMATE_WEBHOOK_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        if (res.ok) {
+          toast.className = "toast success";
+          toast.textContent = `Success: ${trailerId} updated to ${status}`;
+        } else {
+          throw new Error(`Server returned HTTP ${res.status}`);
+        }
+      } catch (err) {
+        toast.className = "toast error";
+        toast.textContent = `Error sending update: ${err.message}`;
+      } finally {
+        updateButtonsState(false);
+      }
+    }
+
+    initTrailerId();
+    requestLocation();
+  </script>
+</body>
+</html>
