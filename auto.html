@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Trailer Check-in</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 24px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .spinner {
+      width: 56px;
+      height: 56px;
+      border: 5px solid rgba(255,255,255,0.1);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 24px auto;
+    }
+    .spinner.done {
+      animation: none;
+      border-color: var(--green);
+      background: rgba(34, 197, 94, 0.15);
+      position: relative;
+    }
+    .spinner.err {
+      animation: none;
+      border-color: var(--red);
+      background: rgba(239, 68, 68, 0.15);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .badge {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .badge.full { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .badge.middle { background: rgba(245, 158, 11, 0.2); color: #fde68a; }
+    .badge.empty { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+    .badge.default { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+    .trailer {
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #38bdf8;
+      margin: 0 0 16px 0;
+    }
+    .msg {
+      font-size: 1rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .btn {
+      margin-top: 20px;
+      background: #334155;
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 20px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div id="icon" class="spinner"></div>
+    <div id="statusBadge" class="badge default">CHECKING IN</div>
+    <div class="trailer" id="trailerDisplay">...</div>
+    <div class="msg" id="msgText">Getting GPS location...</div>
+    <button class="btn" id="retryBtn" onclick="sendCheckin()">Retry</button>
+  </div>
+
+  <script>
+    // =========================================================================
+    // CONFIGURATION: Set your Power Automate HTTP POST Webhook URL here
+    // =========================================================================
+    const POWER_AUTOMATE_WEBHOOK_URL = "YOUR_POWER_AUTOMATE_WEBHOOK_URL_HERE";
+
+    const params = new URLSearchParams(window.location.search);
+    const trailerId = (params.get("trailer") || params.get("id") || "UNKNOWN").trim();
+    const statusParam = (params.get("status") || "").trim().toUpperCase();
+
+    // Map traffic light color
+    const lightColor = statusParam === "FULL" ? "RED" : statusParam === "MIDDLE" ? "AMBER" : statusParam === "EMPTY" ? "GREEN" : "N/A";
+
+    document.getElementById("trailerDisplay").textContent = trailerId;
+    const badge = document.getElementById("statusBadge");
+    if (statusParam) {
+      badge.textContent = statusParam;
+      badge.className = `badge ${statusParam.toLowerCase()}`;
+    }
+
+    function sendCheckin() {
+      const icon = document.getElementById("icon");
+      const msg = document.getElementById("msgText");
+      const retryBtn = document.getElementById("retryBtn");
+
+      icon.className = "spinner";
+      msg.textContent = "Acquiring GPS fix...";
+      retryBtn.style.display = "none";
+
+      if (!navigator.geolocation) {
+        icon.className = "spinner err";
+        msg.textContent = "Geolocation not supported by this browser.";
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          msg.textContent = "Sending update...";
+
+          const payload = {
+            trailer_id: trailerId,
+            status: statusParam || "UNSPECIFIED",
+            traffic_light: lightColor,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            accuracy_meters: pos.coords.accuracy,
+            google_maps_url: `https://www.google.com/maps?q=${pos.coords.latitude},${pos.coords.longitude}`,
+            timestamp_utc: new Date().toISOString(),
+            user_agent: navigator.userAgent
+          };
+
+          try {
+            if (!POWER_AUTOMATE_WEBHOOK_URL || POWER_AUTOMATE_WEBHOOK_URL.includes("YOUR_POWER_AUTOMATE_WEBHOOK_URL")) {
+              console.log("Demo check-in payload:", payload);
+              icon.className = "spinner done";
+              msg.textContent = `[Demo] Location recorded for ${trailerId}!`;
+              return;
+            }
+
+            const res = await fetch(POWER_AUTOMATE_WEBHOOK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+              icon.className = "spinner done";
+              msg.textContent = `Location logged successfully!`;
+            } else {
+              throw new Error(`HTTP ${res.status}`);
+            }
+          } catch (e) {
+            icon.className = "spinner err";
+            msg.textContent = `Failed to send: ${e.message}`;
+            retryBtn.style.display = "inline-block";
+          }
+        },
+        (err) => {
+          icon.className = "spinner err";
+          msg.textContent = "GPS permission denied or timed out. Please allow location.";
+          retryBtn.style.display = "inline-block";
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+      );
+    }
+
+    sendCheckin();
+  </script>
+</body>
+</html>
